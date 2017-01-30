@@ -1,0 +1,183 @@
+#include "../Generic.h"
+
+uchar _buffer[BUFF_SIZE];
+uchar _data[DATA_SIZE]; /* 8 mb */
+
+//Function to affine a process to a CPU core
+int
+set_cpu_core(pid_t pid, int core_num) {
+  cpu_set_t my_set;        /* Define cpu_set bit mask. */
+  CPU_ZERO(&my_set);       /* Initialize to 0,no CPUs selected. */
+  CPU_SET(core_num, &my_set);     /* Set the bit that corresponding to core_num */
+  // Set affinity of current process to core_num*/
+  return sched_setaffinity(pid, sizeof(cpu_set_t), &my_set);
+}
+
+//Function to verify the affinity of process set
+int
+get_cpu_core(pid_t pid) {
+//  pid_t pid = getpid();
+  cpu_set_t my_set;
+  int ret;
+
+  CPU_ZERO(&my_set);
+  ret = sched_getaffinity(pid, sizeof(my_set), &my_set);
+  if (ret == 0) {
+    char str[80];
+    strcpy(str," ");
+    int count = 0;
+    int j;
+    for (j = 0; j < CPU_SETSIZE; ++j)
+    {
+        if (CPU_ISSET(j, &my_set))
+        {
+            ++count;
+            char cpunum[3];
+            sprintf(cpunum, "%d ", j);
+            strcat(str, cpunum);
+        }
+    }
+    printf("pid %d affinity has %d CPUs ... %s\n", pid, count, str);
+  }
+  return ret;
+}
+
+void
+error_exit(char *err) {
+  fprintf(stderr, "%s\n %s\n", err, strerror(errno));
+  exit(EXIT_FAILURE);
+}
+
+int
+main(int argc, char* argv[])
+{
+  char* err_msg;
+  int set_core_success, get_core_success;
+  int iter = 0;
+  uint packet_size = 0;
+
+  int which = PRIO_PROCESS;
+  id_t pid;
+  int priority = -20;
+  int set_prio_ret;
+
+  if (argc != 2) {
+    err_msg = "Usage: pipe_ipc  <PACKET_SIZE>";
+    error_exit(err_msg);
+  }
+
+  //Set Affinity of Sender Process i.e. Parent
+  pid_t sender_pid = getpid();
+  printf("Setting Parent Process : %d Affinity to Core 2\n", sender_pid);
+  set_core_success = set_cpu_core(sender_pid, 2);
+  if(set_core_success == -1) {
+    err_msg = "Couldn't set CPU Affinity for Parent Process";
+    error_exit(err_msg);
+  }
+  printf("Parent Process Affinity to Core 2 successfully set\n");
+
+  //CPU Affinity verification
+  get_core_success = get_cpu_core(sender_pid);
+  if(get_core_success == -1) {
+    err_msg = "Couldn't get CPU Affinity for Parent Process";
+    error_exit(err_msg);
+  }
+
+  /*set_prio_ret = setpriority(which, sender_pid, priority);
+  if(set_prio_ret == -1) {
+    err_msg = "Couldn't set Parent Process priority";
+    error_exit(err_msg);
+  }*/
+ 
+
+  /* Fill the buffers with some data */
+  memset(_buffer, 's', sizeof(uchar) * BUFF_SIZE);
+  memset(_data, 'p', sizeof(uchar) * DATA_SIZE);
+
+  //Create Pipe
+  int p_to_c_pipe_fd[2], c_to_p_pipe_fd[2];
+  pid_t receiver_pid;
+  char buf;
+
+  longtime min = INT_MAX, max = -1, start = 0, end = 0, diff = 0;
+
+  if ((pipe(p_to_c_pipe_fd) == -1) ||  (pipe(c_to_p_pipe_fd) == -1)){
+    err_msg = "pipe creation failed";
+    error_exit(err_msg);
+  }
+
+  receiver_pid = fork();
+  if (receiver_pid == -1) {
+    err_msg = "fork failed";
+    error_exit(err_msg);
+  }
+  
+  if (receiver_pid == 0) {
+    /*set_prio_ret = setpriority(which, receiver_pid, priority);
+    if(set_prio_ret == -1) {
+      err_msg = "Couldn't set Child Process priority";
+      error_exit(err_msg);
+    }*/
+ 
+    /* Child/Receiver reads from pipe */
+    close(p_to_c_pipe_fd[WR]);       /* Close unused write end of p_to_c*/
+    close(c_to_p_pipe_fd[RD]);       /* Close unused read end of c_to_p*/
+
+    for(iter = 0; iter < NUM_TRIALS; iter++) {
+      read(p_to_c_pipe_fd[RD], _buffer, packet_size);
+      write(c_to_p_pipe_fd[WR], _buffer, packet_size);
+    }
+
+    close(p_to_c_pipe_fd[RD]);
+    close(c_to_p_pipe_fd[WR]);
+
+    //exit(EXIT_SUCCESS);
+  } else {
+    //Set Affinity of Receiver Process i.e. Child
+    printf("Setting Process : %d Affinity to Core 3\n", receiver_pid);
+    set_core_success = set_cpu_core(receiver_pid, 3);
+    if(set_core_success == -1) {
+      err_msg = "Couldn't set CPU Affinity for Child Process";
+      error_exit(err_msg);
+    }
+    printf("Child Process Affinity to Core 3 successfully set\n");
+
+    //CPU Affinity verification
+    get_core_success = get_cpu_core(receiver_pid);
+    if(get_core_success == -1) {
+      err_msg = "Couldn't get CPU Affinity for Child Process";
+      error_exit(err_msg);
+    }
+
+    /* Parent/Sender writes to pipe */
+    close(p_to_c_pipe_fd[RD]);        /* Close unused read end of p_to_c*/
+    close(c_to_p_pipe_fd[WR]);        /* Close unused read end of c_to_p*/
+
+    for(iter = 0; iter < NUM_TRIALS; iter++) {
+      start = get_current_time();
+      write(p_to_c_pipe_fd[WR], _buffer, packet_size);
+      read(c_to_p_pipe_fd[RD], _buffer, packet_size);
+      end = get_current_time();
+      diff = end - start;
+      printf("Iter %d: Time Taken = %lld\n", iter, diff/2);
+      if (diff < min) { min = diff; }
+      if (diff > max) { max = diff; }
+    }
+    
+    /* Halve the values as we need to consider round-trip time */
+    min /= 2; max /= 2;
+
+    printf("=================== LATENCY ======================\n");
+    printf("Minimum latency = %lld\n", min);
+    printf("Maximum latency = %lld\n", max);
+
+    close(p_to_c_pipe_fd[WR]);
+    close(c_to_p_pipe_fd[RD]);
+
+    //exit(EXIT_SUCCESS);
+  }
+
+  
+
+  return 0;
+}

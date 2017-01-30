@@ -13,6 +13,11 @@
 #include <netdb.h>
 #include <netinet/in.h>                                    
 #include <netinet/tcp.h>                                   
+#include <errno.h>
+#include <sys/resource.h>
+
+#define RD 0
+#define WR 1
 
 char output[1000] = {0};                                   
 
