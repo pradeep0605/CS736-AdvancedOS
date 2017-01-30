@@ -13,8 +13,8 @@
 typedef unsigned char uchar;
 typedef unsigned int uint;
 
-#define BUFF_SIZE (1024 * 512); /* 512k */
-#define DATA_SIZE (1024 * 1024 * 8); /* 8 MB */
+#define BUFF_SIZE (1024 * 512) /* 512k */
+#define DATA_SIZE (1024 * 1024 * 8) /* 8 MB */
 
 uchar _buffer[BUFF_SIZE];
 uchar _data[DATA_SIZE]; /* 8 mb */

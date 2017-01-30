@@ -25,12 +25,15 @@ char output[1000] = {0};
 
 typedef unsigned char uchar;
 typedef unsigned int uint;
+typedef struct timespec timespec;
 
-#define BUFF_SIZE (1024 * 512);
-#define DATA_SIZE (1024 * 1024 * 8);
+#define BUFF_SIZE (1024 * 512)
+#define DATA_SIZE (1024 * 1024 * 8)
+#define LATENCY_ITR (30)
 
-uchar _buffer[BUFF_SIZE];
-uchar _data[DATA_SIZE]; /* 8 mb */
+timespec zero;
+uchar _buffer[BUFF_SIZE]; /* 512k */
+uchar _data[DATA_SIZE]; /* 8 MB */
 
 int socket_create_and_accept(int port) {
 	/* Create a socket for local communication (within the same device) */
@@ -76,15 +79,65 @@ int socket_create_and_accept(int port) {
 
 }
 
+/* a - b */
+timespec diff(timespec a, timespec b) {
+	timespec result = zero;
+	result.tv_sec = a.tv_sec - b.tv_sec;
+	result.tv_nsec = a.tv_nsec - b.tv_nsec;
+	return result;
+}
+
+int compare(timespec a, timespec b) {
+	int val = 0;
+	timespec res = diff(a,b);
+	if (res.tv_sec < 0 || res.tv_nsec < 0) {
+		return -1;
+	}
+
+	if (res.tv_sec > 0 || res.tv_nsec > 0) {
+		return 1;
+	}
+
+	if (res.tv_sec == 0 && res.tv_nsec == 0) {
+		return 0;
+	}
+
+}
+
 int main(int argc, char *argv[]) {
 	int fd = -1;
+	int i = 0, j = 0;
+	uint packet_size = 0;
 	if (argc != 2) {
 		socketperror("Usage: ServerSocket packet_size \n");
 		exit(0);
 	}
 
+	packet_size = atoi(argv[1]);
+		/* check for 2 powers */
+	if ((packet_size & (packet_size  -1)) != 0) {
+		socketperror("Packet size not in 2 powers\n");
+		exit(1);
+	}
+
+	/* Fill the buffers with some data */
 	memset(_buffer, 'e', sizeof(uchar) * BUFF_SIZE);
 	memset(_data, 'd', sizeof(uchar) * DATA_SIZE);
+	
+	/* Calculate lanency */
+	timespec min = {INT_MAX,INT_MAX};
+	timespec max = zero;
+	timespec start = zero, end = zero;
+	
+
+	for (i = 0; i < LATENCY_ITR; ++i) {
+		clock_gettime(CLOCK_MONOTONIC, &start);
+		write(fd, _buffer, packet_size);
+		read(fd, _buffer, packet_size);
+		clock_gettime(CLOCK_MONOTONIC, &end);
+
+	}
+
 	
 	fd = socket_create_and_accept(SERVER_PORT);
 	
