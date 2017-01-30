@@ -1,8 +1,5 @@
 #include "../Generic.h"
 
-uchar _buffer[BUFF_SIZE];
-uchar _data[DATA_SIZE]; /* 8 mb */
-
 void
 error_exit(char *err) {
   fprintf(stderr, "%s\n %s\n", err, strerror(errno));
@@ -14,13 +11,8 @@ main(int argc, char* argv[])
 {
   char* err_msg;
   int set_core_success, get_core_success;
-  int iter = 0;
+  int iter = 0, i = 0;
   uint packet_size = 0;
-
-  int which = PRIO_PROCESS;
-  id_t pid;
-  int priority = -20;
-  int set_prio_ret;
 
   if (argc != 2) {
     err_msg = "Usage: pipe_ipc  <PACKET_SIZE>";
@@ -34,7 +26,8 @@ main(int argc, char* argv[])
 	exit(EXIT_FAILURE);
   }
 
-  printf("Packet Size : %d\n", packet_size);
+  //printf("Packet Size : %d\n", packet_size);
+  uint n = DATA_SIZE / packet_size;
 
   //Set Affinity of Sender Process i.e. Parent
   pid_t sender_pid = getpid();
@@ -53,16 +46,8 @@ main(int argc, char* argv[])
     error_exit(err_msg);
   }
 
-  /*set_prio_ret = setpriority(which, sender_pid, priority);
-  if(set_prio_ret == -1) {
-    err_msg = "Couldn't set Parent Process priority";
-    error_exit(err_msg);
-  }*/
- 
-
   /* Fill the buffers with some data */
   memset(_buffer, 's', sizeof(uchar) * BUFF_SIZE);
-  memset(_data, 'p', sizeof(uchar) * DATA_SIZE);
 
   //Create Pipe
   int p_to_c_pipe_fd[2], c_to_p_pipe_fd[2];
@@ -83,24 +68,24 @@ main(int argc, char* argv[])
   }
   
   if (receiver_pid == 0) {
-    /*set_prio_ret = setpriority(which, receiver_pid, priority);
-    if(set_prio_ret == -1) {
-      err_msg = "Couldn't set Child Process priority";
-      error_exit(err_msg);
-    }*/
- 
     /* Child/Receiver reads from pipe */
     close(p_to_c_pipe_fd[WR]);       /* Close unused write end of p_to_c*/
     close(c_to_p_pipe_fd[RD]);       /* Close unused read end of c_to_p*/
 
+	/*=================== LATENCY ======================*/
     for(iter = 0; iter < NUM_TRIALS; iter++) {
-      read(p_to_c_pipe_fd[RD], _buffer, packet_size);
-      write(c_to_p_pipe_fd[WR], _buffer, packet_size);
+      read_full(p_to_c_pipe_fd[RD], _buffer, packet_size);
+      write_full(c_to_p_pipe_fd[WR], _buffer, packet_size);
     }
 
+	/*============== THROUGHPUT ===================*/
+	uint response = 0xdeadbeef;
+	for (i = 0; i < n; ++i) {
+      read_full(p_to_c_pipe_fd[RD], _buffer, packet_size);
+	}
+    write_full(c_to_p_pipe_fd[WR], &response, sizeof(uint));
     close(p_to_c_pipe_fd[RD]);
     close(c_to_p_pipe_fd[WR]);
-
     //exit(EXIT_SUCCESS);
   } else {
     //Set Affinity of Receiver Process i.e. Child
@@ -119,14 +104,15 @@ main(int argc, char* argv[])
       error_exit(err_msg);
     }
 
-    /* Parent/Sender writes to pipe */
+    /* Parent/Sender read_fulls to pipe */
     close(p_to_c_pipe_fd[RD]);        /* Close unused read end of p_to_c*/
-    close(c_to_p_pipe_fd[WR]);        /* Close unused read end of c_to_p*/
-
+    close(c_to_p_pipe_fd[WR]);        /* Close unused write end of c_to_p*/
+	
+	/*=================== LATENCY ======================*/
     for(iter = 0; iter < NUM_TRIALS; iter++) {
       start = get_current_time();
-      write(p_to_c_pipe_fd[WR], _buffer, packet_size);
-      read(c_to_p_pipe_fd[RD], _buffer, packet_size);
+      write_full(p_to_c_pipe_fd[WR], _buffer, packet_size);
+      read_full(c_to_p_pipe_fd[RD], _buffer, packet_size);
       end = get_current_time();
       diff = end - start;
       //printf("Iter %d: Time Taken = %lld\n", iter, diff/2);
@@ -141,10 +127,37 @@ main(int argc, char* argv[])
     printf("Minimum latency = %lld\n", min);
     //printf("Maximum latency = %lld\n", max);
 
-    close(p_to_c_pipe_fd[WR]);
+	/*============== THROUGHPUT ===================*/
+	uint response = 0;
+	start = get_current_time();
+	for (i = 0; i < n; ++i) {
+		write_full(p_to_c_pipe_fd[WR], _buffer, packet_size);
+	}
+	printf("Parent; Waiting to read the response\n");
+	fflush(stdout);
+	read_full(c_to_p_pipe_fd[RD],  &response, sizeof(unsigned int));
+	end = get_current_time();
+
+	if (response != 0xdeadbeef) {
+		printf("Expected ACK : %u\n", 0xdeadbeef);
+		printf("Received ACK : %u\n", response);
+		printf("Received wrong ACK\n");
+		exit(EXIT_FAILURE);
+	}
+
+	printf("==================== THROUGHPUT %s ======================\n",
+	argv[1]);
+	printf("Data_Size = %u\nTime_Taken = %lld nano seconds\n", DATA_SIZE, (end - start));
+	printf("Throughput = %Lf\n\n\n",(((long double)(DATA_SIZE)) / (((long
+	double)(end - start)) / BILLION )));
+	
+    wait(NULL);
+	close(p_to_c_pipe_fd[WR]);
     close(c_to_p_pipe_fd[RD]);
 
-    //exit(EXIT_SUCCESS);
+    exit(EXIT_SUCCESS);
   }
+  /*===================================================================*/
+
   return 0;
 }
