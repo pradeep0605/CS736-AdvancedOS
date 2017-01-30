@@ -1,35 +1,4 @@
-#include<stdio.h>
-#define _GNU_SOURCE
-#include <stdio.h>
-#include <sched.h>
-#include <sys/types.h>
-#include <sys/wait.h>
-#include <sys/time.h>
-#include <time.h>
-#include <limits.h>
-#include <string.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <netinet/tcp.h>
-
-char output[1000] = {0};
-
-#define socketperror(format, ...) \
-  sprintf(output, format, ##__VA_ARGS__); \
-  if (write(STDERR_FILENO, output, strlen(output)) == -1) \
-	perror("Error in writing to STDERR\n");
-
-#define SERVER_PORT 3141
-
-typedef unsigned char uchar;
-typedef unsigned int uint;
-typedef struct timespec timespec;
-
-#define BUFF_SIZE (1024 * 512)
-#define DATA_SIZE (1024 * 1024 * 8)
-#define LATENCY_ITR (30)
+#include "Generic.h"
 
 timespec zero;
 uchar _buffer[BUFF_SIZE]; /* 512k */
@@ -79,34 +48,10 @@ int socket_create_and_accept(int port) {
 
 }
 
-/* a - b */
-timespec diff(timespec a, timespec b) {
-	timespec result = zero;
-	result.tv_sec = a.tv_sec - b.tv_sec;
-	result.tv_nsec = a.tv_nsec - b.tv_nsec;
-	return result;
-}
-
-int compare(timespec a, timespec b) {
-	int val = 0;
-	timespec res = diff(a,b);
-	if (res.tv_sec < 0 || res.tv_nsec < 0) {
-		return -1;
-	}
-
-	if (res.tv_sec > 0 || res.tv_nsec > 0) {
-		return 1;
-	}
-
-	if (res.tv_sec == 0 && res.tv_nsec == 0) {
-		return 0;
-	}
-
-}
-
 int main(int argc, char *argv[]) {
 	int fd = -1;
 	int i = 0, j = 0;
+	int ret = 0;
 	uint packet_size = 0;
 	if (argc != 2) {
 		socketperror("Usage: ServerSocket packet_size \n");
@@ -124,22 +69,35 @@ int main(int argc, char *argv[]) {
 	memset(_buffer, 'e', sizeof(uchar) * BUFF_SIZE);
 	memset(_data, 'd', sizeof(uchar) * DATA_SIZE);
 	
-	/* Calculate lanency */
-	timespec min = {INT_MAX,INT_MAX};
-	timespec max = zero;
-	timespec start = zero, end = zero;
-	
-
-	for (i = 0; i < LATENCY_ITR; ++i) {
-		clock_gettime(CLOCK_MONOTONIC, &start);
-		write(fd, _buffer, packet_size);
-		read(fd, _buffer, packet_size);
-		clock_gettime(CLOCK_MONOTONIC, &end);
-
-	}
-
-	
 	fd = socket_create_and_accept(SERVER_PORT);
+	longtime min = INT_MAX, max = -1, sum = 0, start = 0, end = 0, diff = 0;
+
+	/* Calculate lanency */
+	for (i = 0; i < NUM_TRAILS; ++i) {
+		start = get_current_time();
+		if (ret = write(fd, _buffer, packet_size) < 0) {
+			socketperror("Error %d: at line %d: write", ret, __LINE__);
+
+		}
+		if (ret = read(fd, _buffer, packet_size) < 0) {
+			socketperror("Error %d: at line %d: read", ret, __LINE__);
+		}
+		end = get_current_time();
+
+		diff = end - start;
+		if (diff < min) { min = diff; }
+		if (diff > max) { max = diff; }
+		sum += diff;
+	}
+	/* Halve the values as we need to consider round-trip time */
+	min /= 2; max /= 2;	sum /= 2;
+	printf("=================== LATENCY ======================\n");
+	printf("Minimum latency = %lld\n", min);
+	printf("Maximum latency = %lld\n", max);
+	printf("Average latency = %lf\n", (double)(sum) / NUM_TRAILS);
 	
 	return 0;
 }
+
+
+

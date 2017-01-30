@@ -30,7 +30,7 @@ typedef long long int longtime;
 
 #define BUFF_SIZE (1024 * 512)
 #define DATA_SIZE (1024 * 1024 * 8)
-#define LATENCY_ITR (30)
+#define NUM_TRAILS (5)
 #define BILLION (1000000000)
 
 inline longtime get_current_time() {              
