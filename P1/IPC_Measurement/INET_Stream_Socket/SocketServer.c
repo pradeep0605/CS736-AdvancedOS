@@ -102,8 +102,6 @@ int main(int argc, char *argv[]) {
 	
 	/* Calculate lanency */
 	for (i = 0; i < NUM_TRIALS; ++i) {
-		 // printf("%d, ", i);
-		 // fflush(stdout);
 		start = get_current_time();
 		if ((ret = write(fd, _buffer, packet_size)) < 0) {
 			socketperror("Error %d: at line %d: i = %d: write pktsize: %d\n",
@@ -114,6 +112,7 @@ int main(int argc, char *argv[]) {
 			socketperror("Error %d: at line %d: i = %d: read pktsize: %d\n",
 			ret, __LINE__, i, packet_size);
 		}
+		printf("%d ", ret);
 		end = get_current_time();
 
 		diff = end - start;
@@ -128,6 +127,7 @@ int main(int argc, char *argv[]) {
 	printf("Maximum latency = %lld\n", max);
 	printf("Average latency = %lf\n", (double)(sum) / NUM_TRIALS);
 	fflush(stdout);
+	sleep(4);
 	close(fd);
 	return 0;
 }

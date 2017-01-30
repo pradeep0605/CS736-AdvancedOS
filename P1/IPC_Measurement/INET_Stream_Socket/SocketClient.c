@@ -49,18 +49,18 @@ int main(int argc, char *argv[]) {
 	/* ========================= Latency ===================== */
 	/* Calculate lanency */
 	for (i = 0; i < NUM_TRIALS; ++i) {
-		 // printf("%d, ", i);
-		 // fflush(stdout);
 		if ((ret = read(fd, _buffer, packet_size)) < 0) {
 			socketperror("Error %d: at line %d: i = %d: read pktsize: %d\n",
 			ret, __LINE__, i, packet_size);
 		}
+		printf("%d ", ret);
 		if ((ret = write(fd, _buffer, packet_size)) < 0) {
 			socketperror("Error %d: at line %d: i = %d: read pktsize: %d\n",
 			ret, __LINE__, i, packet_size);
 		}
 	}
 	printf("Done with Latency transactions! i = %d\n", i);
+	sleep (3);
 	close(fd);
 	return 0;
 }

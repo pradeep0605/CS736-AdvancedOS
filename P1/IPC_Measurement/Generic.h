@@ -98,7 +98,7 @@ get_cpu_core(pid_t pid) {
             strcat(str, cpunum);
         }
     }
-    printf("pid %d affinity has %d CPUs ... %s\n", pid, count, str);
+    /* printf("pid %d affinity has %d CPUs ... %s\n", pid, count, str); */
   }
   return ret;
 }
