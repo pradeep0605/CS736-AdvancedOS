@@ -63,5 +63,42 @@ int get_packet_size(char *s) {
 	}
 }
 
+//Function to affine a process to a CPU core
+int
+set_cpu_core(pid_t pid, int core_num) {
+	/* Define cpu_set bit mask. */
+	cpu_set_t my_set;       
+ 	/* Initialize to 0,no CPUs selected. */
+	CPU_ZERO(&my_set);    
+ 	/* Set the bit that corresponding to core_num */
+	CPU_SET(core_num, &my_set);
+	/* Set affinity of current process to core_num */
+	return sched_setaffinity(pid, sizeof(cpu_set_t), &my_set);
+}
 
+//Function to verify the affinity of process set
+int
+get_cpu_core(pid_t pid) {
+//  pid_t pid = getpid();
+  cpu_set_t my_set;
+  int ret;
 
+  CPU_ZERO(&my_set);
+  ret = sched_getaffinity(pid, sizeof(my_set), &my_set);
+  if (ret == 0) {
+    char str[80];
+    strcpy(str," ");
+    int count = 0;
+    int j;
+    for (j = 0; j < CPU_SETSIZE; ++j) {
+        if (CPU_ISSET(j, &my_set)) {
+            ++count;
+            char cpunum[3];
+            sprintf(cpunum, "%d ", j);
+            strcat(str, cpunum);
+        }
+    }
+    printf("pid %d affinity has %d CPUs ... %s\n", pid, count, str);
+  }
+  return ret;
+}

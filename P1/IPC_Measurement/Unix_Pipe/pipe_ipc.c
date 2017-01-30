@@ -3,45 +3,6 @@
 uchar _buffer[BUFF_SIZE];
 uchar _data[DATA_SIZE]; /* 8 mb */
 
-//Function to affine a process to a CPU core
-int
-set_cpu_core(pid_t pid, int core_num) {
-  cpu_set_t my_set;        /* Define cpu_set bit mask. */
-  CPU_ZERO(&my_set);       /* Initialize to 0,no CPUs selected. */
-  CPU_SET(core_num, &my_set);     /* Set the bit that corresponding to core_num */
-  // Set affinity of current process to core_num*/
-  return sched_setaffinity(pid, sizeof(cpu_set_t), &my_set);
-}
-
-//Function to verify the affinity of process set
-int
-get_cpu_core(pid_t pid) {
-//  pid_t pid = getpid();
-  cpu_set_t my_set;
-  int ret;
-
-  CPU_ZERO(&my_set);
-  ret = sched_getaffinity(pid, sizeof(my_set), &my_set);
-  if (ret == 0) {
-    char str[80];
-    strcpy(str," ");
-    int count = 0;
-    int j;
-    for (j = 0; j < CPU_SETSIZE; ++j)
-    {
-        if (CPU_ISSET(j, &my_set))
-        {
-            ++count;
-            char cpunum[3];
-            sprintf(cpunum, "%d ", j);
-            strcat(str, cpunum);
-        }
-    }
-    printf("pid %d affinity has %d CPUs ... %s\n", pid, count, str);
-  }
-  return ret;
-}
-
 void
 error_exit(char *err) {
   fprintf(stderr, "%s\n %s\n", err, strerror(errno));
@@ -65,6 +26,15 @@ main(int argc, char* argv[])
     err_msg = "Usage: pipe_ipc  <PACKET_SIZE>";
     error_exit(err_msg);
   }
+
+  packet_size = get_packet_size(argv[1]);
+  /* check for 2 powers */
+  if ((packet_size & (packet_size  -1)) != 0) {
+  	err_msg = "Packet size not in 2 powers";
+	exit(EXIT_FAILURE);
+  }
+
+  printf("Packet Size : %d\n", packet_size);
 
   //Set Affinity of Sender Process i.e. Parent
   pid_t sender_pid = getpid();
@@ -159,7 +129,7 @@ main(int argc, char* argv[])
       read(c_to_p_pipe_fd[RD], _buffer, packet_size);
       end = get_current_time();
       diff = end - start;
-      printf("Iter %d: Time Taken = %lld\n", iter, diff/2);
+      //printf("Iter %d: Time Taken = %lld\n", iter, diff/2);
       if (diff < min) { min = diff; }
       if (diff > max) { max = diff; }
     }
@@ -169,15 +139,12 @@ main(int argc, char* argv[])
 
     printf("=================== LATENCY ======================\n");
     printf("Minimum latency = %lld\n", min);
-    printf("Maximum latency = %lld\n", max);
+    //printf("Maximum latency = %lld\n", max);
 
     close(p_to_c_pipe_fd[WR]);
     close(c_to_p_pipe_fd[RD]);
 
     //exit(EXIT_SUCCESS);
   }
-
-  
-
   return 0;
 }
