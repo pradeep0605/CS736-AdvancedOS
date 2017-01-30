@@ -23,7 +23,8 @@ char output[1000] = {0};
 
 #define socketperror(format, ...) \
 	sprintf(output, format, ##__VA_ARGS__); \
-	if (write(STDERR_FILENO, output, strlen(output)) == -1) \
+	if (write(STDERR_FILENO, output, strlen(output)) == -1 || \
+		fflush(stderr) < 0) \
 		perror("Error in writing to STDERR\n");                
 
 #define SERVER_PORT 3141                                   
@@ -107,3 +108,26 @@ get_cpu_core(pid_t pid) {
   }
   return ret;
 }
+
+int write_full(int fd, void *buff, uint size) {
+	int write_size = size;
+	int rem = 0;
+	while ((rem = write(fd, buff, write_size)) < write_size) {
+		if (rem < 0) { return rem; } 
+		write_size -=rem;
+		buff = buff + rem;
+	}
+	return size;
+}
+
+int read_full(int fd, void *buff, uint size) {
+	int read_size = size;
+	int rem = 0;
+	while ((rem = read(fd, buff, read_size)) < read_size) {
+		if (rem < 0) { return rem; } 
+		read_size -=rem;
+		buff = buff + rem;
+	}
+	return size;
+}
+

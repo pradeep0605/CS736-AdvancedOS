@@ -87,12 +87,12 @@ int main(int argc, char *argv[]) {
 	 * the first handshake between client and server before staring of any other
 	 * transactions.
 	 */
-	if ((ret = write(fd, &packet_size, sizeof(packet_size))) < 0) {
+	if ((ret = write_full(fd, &packet_size, sizeof(packet_size))) < 0) {
 		socketperror("Error %d: at line %d: write\n", ret, __LINE__);
 		exit(1);
 	}
 	uint response = 0;
-	if ((ret = read(fd, &response, sizeof(response))) < 0) {
+	if ((ret = read_full(fd, &response, sizeof(response))) < 0) {
 		socketperror("Error %d: at line %d: read\n", ret, __LINE__);
 		exit(1);
 	}
@@ -106,12 +106,12 @@ int main(int argc, char *argv[]) {
 	/* Calculate lanency */
 	for (i = 0; i < NUM_TRIALS; ++i) {
 		start = get_current_time();
-		if ((ret = write(fd, _buffer, packet_size)) < 0) {
+		if ((ret = write_full(fd, _buffer, packet_size)) < 0) {
 			socketperror("Error %d: at line %d: i = %d: write pktsize: %d\n",
 			ret, __LINE__, i, packet_size);
 		}
 
-		if ((ret = read(fd, _buffer, packet_size)) < 0) {
+		while ((ret = read_full(fd, _buffer, packet_size)) < 0) {
 			socketperror("Error %d: at line %d: i = %d: read pktsize: %d\n",
 			ret, __LINE__, i, packet_size);
 		}
@@ -133,25 +133,25 @@ int main(int argc, char *argv[]) {
 
 	start = get_current_time();
 	for (i = 0; i < n; ++i) {
-		if ((ret = write(fd, _buffer, packet_size)) < 0) {
+		if ((ret = write_full(fd, _buffer, packet_size)) < 0) {
 			socketperror("Error %d: at line %d: i = %d: write pktsize: %d\n",
 			ret, __LINE__, i, packet_size);
+			socketperror("Reason %s\n", strerror(errno));
 		}
 	}
-	if ((ret = read(fd, &response, sizeof(uint))) < 0) {
+	if ((ret = read_full(fd, &response, sizeof(uint))) < sizeof(uint)) {
 		socketperror("Error %d: at line %d: i = %d: read pktsize: %d\n",
 		ret, __LINE__, i, packet_size);
 	}
 	end = get_current_time();
 	if (response != 0xdeadbeef) {
-		socketperror("Something went wrong ! Client is not in sync\n");
-		exit(0);
+		socketperror("Something went wrong ! Client response = %x\n", response);
 	}
 	printf("==================== THROUGHPUT %s ======================\n",
 		argv[2]);
 	printf("Data_Size = %u\nTime_Taken = %lld nano seconds\n",
 		DATA_SIZE, (end - start));
-	printf("Throughput = %Lf\n\n\n",
+	printf("Throughput = %Lf\n",
 	 ( ((long double)(DATA_SIZE)) / (((long double)(end - start)) / BILLION )));
 
 	close(global_socketid);

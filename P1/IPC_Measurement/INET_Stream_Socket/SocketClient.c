@@ -54,17 +54,17 @@ int main(int argc, char *argv[]) {
 	}
 
 	/* Perform handshake protocol to get the packet size */
-	read(fd, &packet_size, sizeof(uint));
-	write(fd, &packet_size, sizeof(uint));
+	read_full(fd, &packet_size, sizeof(uint));
+	write_full(fd, &packet_size, sizeof(uint));
 
 	/* ========================= Latency ===================== */
 	/* Calculate lanency */
 	for (i = 0; i < NUM_TRIALS; ++i) {
-		if ((ret = read(fd, _buffer, packet_size)) < 0) {
+		if ((ret = read_full(fd, _buffer, packet_size)) < 0) {
 			socketperror("Error %d: at line %d: i = %d: read pktsize: %d\n",
 			ret, __LINE__, i, packet_size);
 		}
-		if ((ret = write(fd, _buffer, packet_size)) < 0) {
+		if ((ret = write_full(fd, _buffer, packet_size)) < 0) {
 			socketperror("Error %d: at line %d: i = %d: read pktsize: %d\n",
 			ret, __LINE__, i, packet_size);
 		}
@@ -72,18 +72,20 @@ int main(int argc, char *argv[]) {
 	printf("Done with Latency transactions! \n"); 
 
 	int n = DATA_SIZE / packet_size;
+	uint sum = 0;
 	for (i = 0; i < n; ++i) {
-		if ((ret = read(fd, _buffer, packet_size)) < 0) {
-			socketperror("Error %d: at line %d: i = %d: read pktsize: %d\n",
-			ret, __LINE__, i, packet_size);
+		while ((ret = read_full(fd, _buffer, packet_size)) < 0) {
+			socketperror("Error %d: at line %d: ret = %d\n",
+			i, __LINE__, ret);
 		}
+		sum += packet_size;
 	}
 	uint response = 0xdeadbeef;
-	if ((ret = write(fd, &response, sizeof(uint))) < 0) {
+	if ((ret = write_full(fd, &response, sizeof(uint))) < 0) {
 		socketperror("Error %d: at line %d: i = %d: read pktsize: %d\n",
 		ret, __LINE__, i, packet_size);
 	}
-	printf("Done with throughput transactions! \n");
+	printf("Done with throughput transactions! Bytes received = %u\n", sum);
 
 	close(fd);
 	return 0;
