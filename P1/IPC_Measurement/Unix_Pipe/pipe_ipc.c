@@ -20,11 +20,6 @@ main(int argc, char* argv[])
   }
 
   packet_size = get_packet_size(argv[1]);
-  /* check for 2 powers */
-  if ((packet_size & (packet_size  -1)) != 0) {
-  	err_msg = "Packet size not in 2 powers";
-	exit(EXIT_FAILURE);
-  }
 
   //printf("Packet Size : %d\n", packet_size);
   uint n = DATA_SIZE / packet_size;
