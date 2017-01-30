@@ -1,22 +1,22 @@
 #include "../Generic.h"
 
 timespec zero;
-uchar _buffer[BUFF_SIZE]; /* 512k */
-uchar _data[DATA_SIZE]; /* 8 MB */
+int global_socketid = 0;
 
 int socket_create_and_accept(int port) {
 	/* Create a socket for local communication (within the same device) */
 	int option = 1;
 	int err = 0;
 	struct sockaddr_in server;
-	int sfd = socket(AF_INET, SOCK_STREAM, 0);
-	
+	int sfd = global_socketid = socket(AF_INET, SOCK_STREAM, 0);
+
 	if (sfd < 0) {
 		socketperror("Error %d: at line %d: socket creation\n", sfd, __LINE__);
 		exit(1);
 	}
+
 	/* Set the socket option of TCP_NODELAY */
-	if ((err = setsockopt(sfd, IPPROTO_TCP, TCP_NODELAY, &option, sizeof(int))) 
+	if ((err = setsockopt(sfd, IPPROTO_TCP, TCP_NODELAY, &option, sizeof(int)))
 		< 0) {
 		socketperror("Error %d: at line %d: setsockopt\n", err, __LINE__);
 		/*
@@ -28,10 +28,11 @@ int socket_create_and_accept(int port) {
 		exit(1);
 	}
 
+	memset(&server, 0, sizeof(server));
 	server.sin_family = AF_INET;
 	server.sin_port = port;
 	server.sin_addr.s_addr = htonl(INADDR_ANY);
-	
+
 	/* Bind */
 	if ((err = bind(sfd, (struct sockaddr *) &server, sizeof(server))) < 0) {
 		socketperror("Error %d: at line %d: bind\n", err, __LINE__);
@@ -51,7 +52,6 @@ int socket_create_and_accept(int port) {
 
 	/* return the client fd */
 	return err;
-
 }
 
 int main(int argc, char *argv[]) {
@@ -59,26 +59,29 @@ int main(int argc, char *argv[]) {
 	int i = 0, j = 0;
 	int ret = 0;
 	uint packet_size = 0;
-	if (argc != 2) {
-		socketperror("Usage: ServerSocket packet_size \n");
+	uint port = 0;
+
+	if (argc != 3) {
+		socketperror("Usage: ServerSocket port packet_size\n");
 		exit(0);
 	}
+	
+	/* Set CPU 3 fixed for Socket Server */
+	set_cpu_core(0 ,2);
 
-	packet_size = get_packet_size(argv[1]);
-		/* check for 2 powers */
-	if ((packet_size & (packet_size  -1)) != 0) {
-		socketperror("Packet size not in 2 powers\n");
-		exit(1);
-	}
+	port = atoi(argv[1]);
+	packet_size = get_packet_size(argv[2]);
+
+	printf("Starting with packet size %u(%s) and port %u\n",packet_size,
+		argv[2], port);
 
 	/* Fill the buffers with some data */
 	memset(_buffer, 'e', sizeof(uchar) * BUFF_SIZE);
-	memset(_data, 'd', sizeof(uchar) * DATA_SIZE);
-	
-	fd = socket_create_and_accept(SERVER_PORT);
+
+	fd = socket_create_and_accept(port);
 	longtime min = INT_MAX, max = -1, sum = 0, start = 0, end = 0, diff = 0;
 
-	
+
 	/* Send the packet size to the client and client should send back the same
 	 * numebr as the proof that client is following the protocol. This is like
 	 * the first handshake between client and server before staring of any other
@@ -99,7 +102,7 @@ int main(int argc, char *argv[]) {
 		exit(1);
 	}
 	printf("Handshake successful !\n");
-	
+
 	/* Calculate lanency */
 	for (i = 0; i < NUM_TRIALS; ++i) {
 		start = get_current_time();
@@ -112,7 +115,6 @@ int main(int argc, char *argv[]) {
 			socketperror("Error %d: at line %d: i = %d: read pktsize: %d\n",
 			ret, __LINE__, i, packet_size);
 		}
-		printf("%d ", ret);
 		end = get_current_time();
 
 		diff = end - start;
@@ -122,12 +124,37 @@ int main(int argc, char *argv[]) {
 	}
 	/* Halve the values as we need to consider round-trip time */
 	min /= 2; max /= 2;	sum /= 2;
-	printf("=================== LATENCY ======================\n");
+	printf("=================== LATENCY %s ======================\n", argv[2]);
 	printf("Minimum latency = %lld\n", min);
 	printf("Maximum latency = %lld\n", max);
-	printf("Average latency = %lf\n", (double)(sum) / NUM_TRIALS);
-	fflush(stdout);
-	sleep(4);
+	printf("Average latency = %lld\n", (sum) / NUM_TRIALS);
+
+	uint n = DATA_SIZE / packet_size;
+
+	start = get_current_time();
+	for (i = 0; i < n; ++i) {
+		if ((ret = write(fd, _buffer, packet_size)) < 0) {
+			socketperror("Error %d: at line %d: i = %d: write pktsize: %d\n",
+			ret, __LINE__, i, packet_size);
+		}
+	}
+	if ((ret = read(fd, &response, sizeof(uint))) < 0) {
+		socketperror("Error %d: at line %d: i = %d: read pktsize: %d\n",
+		ret, __LINE__, i, packet_size);
+	}
+	end = get_current_time();
+	if (response != 0xdeadbeef) {
+		socketperror("Something went wrong ! Client is not in sync\n");
+		exit(0);
+	}
+	printf("==================== THROUGHPUT %s ======================\n",
+		argv[2]);
+	printf("Data_Size = %u\nTime_Taken = %lld nano seconds\n",
+		DATA_SIZE, (end - start));
+	printf("Throughput = %Lf\n\n\n",
+	 ( ((long double)(DATA_SIZE)) / (((long double)(end - start)) / BILLION )));
+
+	close(global_socketid);
 	close(fd);
 	return 0;
 }

@@ -34,13 +34,13 @@ typedef struct timespec timespec;
 typedef long long int longtime;                            
 
 #define BUFF_SIZE (1024 * 512)
-#define DATA_SIZE (1024 * 1024 * 8)
+#define DATA_SIZE (1024 * 1024 * 64)
 #define NUM_TRIALS (2000)
 #define BILLION (1000000000)
 
 timespec zero;
 uchar _buffer[BUFF_SIZE]; /* 512k */
-uchar _data[DATA_SIZE]; /* 8 MB */
+// uchar _data[DATA_SIZE]; /* 8 MB */
 
 inline longtime get_current_time() {              
     timespec res;                          
@@ -51,13 +51,18 @@ inline longtime get_current_time() {
 }                                          
 
 int get_packet_size(char *s) {
-	int len = strlen(s);
+	uint len = strlen(s);
+	uint res = 0;
 	if (s[len - 1] == 'm' || s[len - 1] == 'M') {
 		s[len - 1] = '\0';
-		return ((atoi(s)) * 1024 * 1024);
+		res = ((atoi(s)) * 1024 * 1024);
+		s[len - 1] = 'M';
+		return res;
 	} else if (s[len - 1] == 'k' || s[len - 1] == 'K') {
 		s[len - 1] = '\0';
-		return ((atoi(s)) * 1024);
+		res = ((atoi(s)) * 1024);
+		s[len - 1] = 'K';
+		return res;
 	} else {
 		return atoi(s);
 	}
@@ -98,7 +103,7 @@ get_cpu_core(pid_t pid) {
             strcat(str, cpunum);
         }
     }
-    /* printf("pid %d affinity has %d CPUs ... %s\n", pid, count, str); */
+    printf("pid %d affinity has %d CPUs ... %s\n", pid, count, str); 
   }
   return ret;
 }

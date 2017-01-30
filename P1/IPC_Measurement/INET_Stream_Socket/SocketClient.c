@@ -1,6 +1,6 @@
 #include "../Generic.h"
 
-int socket_create_and_connect() {
+int socket_create_and_connect(int port) {
 	int fd = 0;
 	int ret = 0;
 	char *server_name = "localhost";
@@ -19,7 +19,7 @@ int socket_create_and_connect() {
 
 	memset(&server, 0, sizeof(server));
 	server.sin_family = AF_INET;
-	server.sin_port = SERVER_PORT;
+	server.sin_port = port;
 	server.sin_addr.s_addr = ((struct in_addr *) 
 		server_ptr->h_addr_list[0])->s_addr;
 
@@ -35,8 +35,19 @@ int main(int argc, char *argv[]) {
 	int fd = 0;
 	int ret = 0, i = 0;
 	uint packet_size = 0;
+	uint port = 0;
 
-	if ((fd = socket_create_and_connect()) < 0) {
+	if (argc != 2) {
+		socketperror("Usage: ServerSocket port\n");
+		exit(0);
+	}
+	
+	/* Set CPU 4 fixed for Socket Server */
+	set_cpu_core(getpid(), 3);
+	
+	port = atoi(argv[1]);
+
+	if ((fd = socket_create_and_connect(port)) < 0) {
 		socketperror("Error %d: at line %d: socket_create_and_connect\n", fd,
 			__LINE__);
 		exit(1);
@@ -53,14 +64,27 @@ int main(int argc, char *argv[]) {
 			socketperror("Error %d: at line %d: i = %d: read pktsize: %d\n",
 			ret, __LINE__, i, packet_size);
 		}
-		printf("%d ", ret);
 		if ((ret = write(fd, _buffer, packet_size)) < 0) {
 			socketperror("Error %d: at line %d: i = %d: read pktsize: %d\n",
 			ret, __LINE__, i, packet_size);
 		}
 	}
-	printf("Done with Latency transactions! i = %d\n", i);
-	sleep (3);
+	printf("Done with Latency transactions! \n"); 
+
+	int n = DATA_SIZE / packet_size;
+	for (i = 0; i < n; ++i) {
+		if ((ret = read(fd, _buffer, packet_size)) < 0) {
+			socketperror("Error %d: at line %d: i = %d: read pktsize: %d\n",
+			ret, __LINE__, i, packet_size);
+		}
+	}
+	uint response = 0xdeadbeef;
+	if ((ret = write(fd, &response, sizeof(uint))) < 0) {
+		socketperror("Error %d: at line %d: i = %d: read pktsize: %d\n",
+		ret, __LINE__, i, packet_size);
+	}
+	printf("Done with throughput transactions! \n");
+
 	close(fd);
 	return 0;
 }
