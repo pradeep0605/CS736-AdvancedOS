@@ -6,40 +6,46 @@ uchar _data[DATA_SIZE]; /* 8 MB */
 
 int socket_create_and_accept(int port) {
 	/* Create a socket for local communication (within the same device) */
-	int sfd = socket(AF_LOCAL, SOCK_STREAM, 0);
 	int option = 1;
 	int err = 0;
 	struct sockaddr_in server;
+	int sfd = socket(AF_INET, SOCK_STREAM, 0);
 	
 	if (sfd < 0) {
-		socketperror("Error %d: at line %d: socket creation", sfd, __LINE__);
+		socketperror("Error %d: at line %d: socket creation\n", sfd, __LINE__);
 		exit(1);
 	}
 	/* Set the socket option of TCP_NODELAY */
-	if (err = setsockopt(sfd, IPPROTO_TCP, TCP_NODELAY, &option, sizeof(int)) 
+	if ((err = setsockopt(sfd, IPPROTO_TCP, TCP_NODELAY, &option, sizeof(int))) 
 		< 0) {
-		socketperror("Error %d: at line %d: setsockopt", err, __LINE__);
+		socketperror("Error %d: at line %d: setsockopt\n", err, __LINE__);
+		/*
+		char msg[1000] = {0};
+		explain_errno_setsockopt(sfd, IPPROTO_TCP, TCP_NODELAY,
+		&option, sizeof(int));
+		printf("%s", msg);
+		*/
 		exit(1);
 	}
 
-	server.sin_family = AF_LOCAL;
+	server.sin_family = AF_INET;
 	server.sin_port = port;
 	server.sin_addr.s_addr = htonl(INADDR_ANY);
 	
 	/* Bind */
-	if (err = bind(sfd, (struct sockaddr *) &server, sizeof(server)) < 0) {
-		socketperror("Error %d: at line %d: bind", err, __LINE__);
+	if ((err = bind(sfd, (struct sockaddr *) &server, sizeof(server))) < 0) {
+		socketperror("Error %d: at line %d: bind\n", err, __LINE__);
 		exit(1);
 	}
 
 	/* Listen */
-	if (err = listen(sfd, 1) < 0) {
-		socketperror("Error %d: at line %d: listen", err, __LINE__);
+	if ((err = listen(sfd, 1)) < 0) {
+		socketperror("Error %d: at line %d: listen\n", err, __LINE__);
 		exit(1);
 	}
 	/* accpet */
-	if (err = accept(sfd, NULL, NULL) < 0) {
-		socketperror("Error %d: at line %d: accept", err, __LINE__);
+	if ((err = accept(sfd, NULL, NULL)) < 0) {
+		socketperror("Error %d: at line %d: accept\n", err, __LINE__);
 		exit(1);
 	}
 
@@ -58,7 +64,7 @@ int main(int argc, char *argv[]) {
 		exit(0);
 	}
 
-	packet_size = atoi(argv[1]);
+	packet_size = get_packet_size(argv[1]);
 		/* check for 2 powers */
 	if ((packet_size & (packet_size  -1)) != 0) {
 		socketperror("Packet size not in 2 powers\n");
@@ -72,15 +78,41 @@ int main(int argc, char *argv[]) {
 	fd = socket_create_and_accept(SERVER_PORT);
 	longtime min = INT_MAX, max = -1, sum = 0, start = 0, end = 0, diff = 0;
 
+	
+	/* Send the packet size to the client and client should send back the same
+	 * numebr as the proof that client is following the protocol. This is like
+	 * the first handshake between client and server before staring of any other
+	 * transactions.
+	 */
+	if ((ret = write(fd, &packet_size, sizeof(packet_size))) < 0) {
+		socketperror("Error %d: at line %d: write\n", ret, __LINE__);
+		exit(1);
+	}
+	uint response = 0;
+	if ((ret = read(fd, &response, sizeof(response))) < 0) {
+		socketperror("Error %d: at line %d: read\n", ret, __LINE__);
+		exit(1);
+	}
+	if (packet_size != response) {
+		socketperror("Client didn't follow the protocol! response = %d\n",
+			response);
+		exit(1);
+	}
+	printf("Handshake successful !\n");
+	
 	/* Calculate lanency */
-	for (i = 0; i < NUM_TRAILS; ++i) {
+	for (i = 0; i < NUM_TRIALS; ++i) {
+		 // printf("%d, ", i);
+		 // fflush(stdout);
 		start = get_current_time();
-		if (ret = write(fd, _buffer, packet_size) < 0) {
-			socketperror("Error %d: at line %d: write", ret, __LINE__);
-
+		if ((ret = write(fd, _buffer, packet_size)) < 0) {
+			socketperror("Error %d: at line %d: i = %d: write pktsize: %d\n",
+			ret, __LINE__, i, packet_size);
 		}
-		if (ret = read(fd, _buffer, packet_size) < 0) {
-			socketperror("Error %d: at line %d: read", ret, __LINE__);
+
+		if ((ret = read(fd, _buffer, packet_size)) < 0) {
+			socketperror("Error %d: at line %d: i = %d: read pktsize: %d\n",
+			ret, __LINE__, i, packet_size);
 		}
 		end = get_current_time();
 
@@ -94,8 +126,9 @@ int main(int argc, char *argv[]) {
 	printf("=================== LATENCY ======================\n");
 	printf("Minimum latency = %lld\n", min);
 	printf("Maximum latency = %lld\n", max);
-	printf("Average latency = %lf\n", (double)(sum) / NUM_TRAILS);
-	
+	printf("Average latency = %lf\n", (double)(sum) / NUM_TRIALS);
+	fflush(stdout);
+	close(fd);
 	return 0;
 }
 
