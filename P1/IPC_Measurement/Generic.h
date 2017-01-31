@@ -15,6 +15,7 @@
 #include <netinet/tcp.h>                                   
 #include <errno.h>
 #include <sys/resource.h>
+#include <sys/mman.h>
 
 #define RD 0
 #define WR 1
@@ -22,6 +23,12 @@
 char output[1000] = {0};                                   
 
 #define socketperror(format, ...) \
+	sprintf(output, format, ##__VA_ARGS__); \
+	if (write(STDERR_FILENO, output, strlen(output)) == -1 || \
+		fflush(stderr) < 0) \
+		perror("Error in writing to STDERR\n");                
+
+#define shrdmem_perror(format, ...) \
 	sprintf(output, format, ##__VA_ARGS__); \
 	if (write(STDERR_FILENO, output, strlen(output)) == -1 || \
 		fflush(stderr) < 0) \
@@ -35,7 +42,7 @@ typedef struct timespec timespec;
 typedef long long int longtime;                            
 
 #define BUFF_SIZE (1024 * 512)
-#define DATA_SIZE (1024 * 1024 * 64)
+#define DATA_SIZE (1024 * 1024 * 128)
 #define NUM_TRIALS (2000)
 #define BILLION (1000000000)
 
