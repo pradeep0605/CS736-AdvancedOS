@@ -84,6 +84,10 @@ int main(int argc, char *argv[])
 		longtime min = INT_MAX, max = -1, sum = 0, start = 0, end = 0, diff = 0;
 		/* calculating latency */
 		for (i = 0; i < NUM_TRIALS && header_ptr->parent_offset < DATA_SIZE; ++i ) {
+			/* To utilize cache better */
+			memcpy(&header_ptr->buffer[header_ptr->parent_offset],
+			_buffer, packet_size);
+
 			start = get_current_time();
 			/* Write */
 			memcpy(&header_ptr->buffer[header_ptr->parent_offset],
