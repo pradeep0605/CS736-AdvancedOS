@@ -1,18 +1,18 @@
-#define _GNU_SOURCE                                        
-#include <stdio.h>                                         
-#include <sched.h>                                         
-#include <sys/types.h>                                     
-#include <sys/wait.h>                                      
-#include <sys/time.h>                                      
-#include <time.h>                                          
-#include <limits.h>                                        
-#include <string.h>                                        
-#include <stdlib.h>                                        
-#include <unistd.h>                                        
-#include <sys/socket.h>                                    
+#define _GNU_SOURCE
+#include <stdio.h>
+#include <sched.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <sys/time.h>
+#include <time.h>
+#include <limits.h>
+#include <string.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <sys/socket.h>
 #include <netdb.h>
-#include <netinet/in.h>                                    
-#include <netinet/tcp.h>                                   
+#include <netinet/in.h>
+#include <netinet/tcp.h>
 #include <errno.h>
 #include <sys/resource.h>
 #include <sys/mman.h>
@@ -20,26 +20,27 @@
 #define RD 0
 #define WR 1
 
-char output[1000] = {0};                                   
+char output[1000] = {0};
 
 #define socketperror(format, ...) \
 	sprintf(output, format, ##__VA_ARGS__); \
 	if (write(STDERR_FILENO, output, strlen(output)) == -1 || \
 		fflush(stderr) < 0) \
-		perror("Error in writing to STDERR\n");                
+		perror("Error in writing to STDERR\n");
 
 #define shrdmem_perror(format, ...) \
 	sprintf(output, format, ##__VA_ARGS__); \
 	if (write(STDERR_FILENO, output, strlen(output)) == -1 || \
 		fflush(stderr) < 0) \
-		perror("Error in writing to STDERR\n");                
+		perror("Error in writing to STDERR\n");
 
-#define SERVER_PORT 3141                                   
+#define SERVER_PORT 3141
 
-typedef unsigned char uchar;                               
-typedef unsigned int uint;                                 
-typedef struct timespec timespec;                          
-typedef long long int longtime;                            
+typedef unsigned char uchar;
+typedef unsigned int uint;
+typedef struct timespec timespec;
+typedef long long int longtime;
+typedef long long int longint;
 
 #define BUFF_SIZE (1024 * 1024)
 #define DATA_SIZE (1024 * 1024 * 128)
@@ -62,13 +63,13 @@ longtime global_time;
 	})
 
 /*
-inline longtime get_current_time() {              
-    timespec res;                          
+inline longtime get_current_time() {
+    timespec res;
 	longtime time = 0;
     clock_gettime(CLOCK_MONOTONIC, &res);
 	time = (res.tv_sec * BILLION) + res.tv_nsec;
 	return time;
-}                                          
+}
 */
 int get_packet_size(char *s) {
 	uint len = strlen(s);
@@ -92,9 +93,9 @@ int get_packet_size(char *s) {
 int
 set_cpu_core(pid_t pid, int core_num) {
 	/* Define cpu_set bit mask. */
-	cpu_set_t my_set;       
+	cpu_set_t my_set;
  	/* Initialize to 0,no CPUs selected. */
-	CPU_ZERO(&my_set);    
+	CPU_ZERO(&my_set);
  	/* Set the bit that corresponding to core_num */
 	CPU_SET(core_num, &my_set);
 	/* Set affinity of current process to core_num */
@@ -123,7 +124,7 @@ get_cpu_core(pid_t pid) {
             strcat(str, cpunum);
         }
     }
-    printf("pid %d affinity has %d CPUs ... %s\n", pid, count, str); 
+    printf("pid %d affinity has %d CPUs ... %s\n", pid, count, str);
   }
   return ret;
 }
@@ -132,7 +133,7 @@ int write_full(int fd, void *buff, uint size) {
 	int write_size = size;
 	int rem = 0;
 	while ((rem = write(fd, buff, write_size)) < write_size) {
-		if (rem < 0) { return rem; } 
+		if (rem < 0) { return rem; }
 		write_size -=rem;
 		buff = buff + rem;
 		/*
@@ -147,7 +148,7 @@ int read_full(int fd, void *buff, uint size) {
 	int read_size = size;
 	int rem = 0;
 	while ((rem = read(fd, buff, read_size)) < read_size) {
-		if (rem < 0) { return rem; } 
+		if (rem < 0) { return rem; }
 		read_size -=rem;
 		buff = buff + rem;
 		/*
@@ -161,7 +162,7 @@ int read_full(int fd, void *buff, uint size) {
 /* As memory is shared, just read through the message */
 #define GO_THROUGH 1
 
-#if GO_THROUGH 
+#if GO_THROUGH
 #define faster_memcpy(d, s, length) \
 	{ uint k = 0; uint* src = (uint *) s, *dest = (uint*) d;\
 		for (; k < (length) / sizeof(uint); k+=1);\
