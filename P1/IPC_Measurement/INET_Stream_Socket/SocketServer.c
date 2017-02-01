@@ -102,7 +102,8 @@ int main(int argc, char *argv[]) {
 		exit(1);
 	}
 	printf("Handshake successful !\n");
-
+	
+	memset(_buffer, 'e', sizeof(uchar) * BUFF_SIZE);
 	/* Calculate lanency */
 	for (i = 0; i < NUM_TRIALS; ++i) {
 		start = get_current_time();
@@ -130,6 +131,10 @@ int main(int argc, char *argv[]) {
 	printf("Average latency = %lld\n", (sum) / NUM_TRIALS);
 
 	uint n = DATA_SIZE / packet_size;
+	
+	/* To make less page faults */
+	memset(_buffer, 'e', sizeof(uchar) * BUFF_SIZE);
+	sleep(0.5);
 
 	start = get_current_time();
 	for (i = 0; i < n; ++i) {

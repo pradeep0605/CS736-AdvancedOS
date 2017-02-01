@@ -41,8 +41,6 @@ main(int argc, char* argv[])
     error_exit(err_msg);
   }
 
-  /* Fill the buffers with some data */
-  memset(_buffer, 's', sizeof(uchar) * BUFF_SIZE);
 
   //Create Pipe
   int p_to_c_pipe_fd[2], c_to_p_pipe_fd[2];
@@ -67,11 +65,15 @@ main(int argc, char* argv[])
     close(p_to_c_pipe_fd[WR]);       /* Close unused write end of p_to_c*/
     close(c_to_p_pipe_fd[RD]);       /* Close unused read end of c_to_p*/
 
+	/* Fill the buffers with some data */
+	memset(_buffer, 's', sizeof(uchar) * BUFF_SIZE);
 	/*=================== LATENCY ======================*/
     for(iter = 0; iter < NUM_TRIALS; iter++) {
       read_full(p_to_c_pipe_fd[RD], _buffer, packet_size);
       write_full(c_to_p_pipe_fd[WR], _buffer, packet_size);
     }
+
+	/* Increase page hit rate by accessing the buffer again */
 
 	/*============== THROUGHPUT ===================*/
 	uint response = 0xdeadbeef;
@@ -103,6 +105,9 @@ main(int argc, char* argv[])
     close(p_to_c_pipe_fd[RD]);        /* Close unused read end of p_to_c*/
     close(c_to_p_pipe_fd[WR]);        /* Close unused write end of c_to_p*/
 	
+	/* Increase page hit rate by accessing the buffer */
+	memset(_buffer, 's', sizeof(uchar) * BUFF_SIZE);
+	
 	/*=================== LATENCY ======================*/
     for(iter = 0; iter < NUM_TRIALS; iter++) {
       start = get_current_time();
@@ -122,16 +127,18 @@ main(int argc, char* argv[])
     printf("Minimum latency = %lld\n", min);
     //printf("Maximum latency = %lld\n", max);
 
+	/* Increase page hit rate by accessing the buffer again*/
 	/*============== THROUGHPUT ===================*/
 	uint response = 0;
 	start = get_current_time();
 	for (i = 0; i < n; ++i) {
 		write_full(p_to_c_pipe_fd[WR], _buffer, packet_size);
 	}
+	end = get_current_time();
+
 	printf("Parent; Waiting to read the response\n");
 	fflush(stdout);
 	read_full(c_to_p_pipe_fd[RD],  &response, sizeof(unsigned int));
-	end = get_current_time();
 
 	if (response != 0xdeadbeef) {
 		printf("Expected ACK : %u\n", 0xdeadbeef);

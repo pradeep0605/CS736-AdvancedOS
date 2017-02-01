@@ -43,7 +43,7 @@ typedef long long int longtime;
 typedef long long int longint;
 
 #define BUFF_SIZE (1024 * 1024)
-#define DATA_SIZE (1024 * 1024 * 128)
+#define DATA_SIZE (1024 * 1024 * 64)
 #define NUM_TRIALS (2000)
 #define BILLION (1000000000)
 
@@ -136,10 +136,10 @@ int write_full(int fd, void *buff, uint size) {
 		if (rem < 0) { return rem; }
 		write_size -=rem;
 		buff = buff + rem;
-		/*
+#if 1		
 		printf("In loop. rem = %u, write_size = %u, size = %u\n", rem,
 		write_size, size);
-		*/
+#endif
 	}
 	return size;
 }
@@ -151,10 +151,10 @@ int read_full(int fd, void *buff, uint size) {
 		if (rem < 0) { return rem; }
 		read_size -=rem;
 		buff = buff + rem;
-		/*
+#if 1
 		printf("In loop. rem = %u, read_size = %u, size = %u\n", rem,
 		read_size, size);
-		*/
+#endif
 	}
 	return size;
 }

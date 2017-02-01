@@ -32,7 +32,9 @@ int main(int argc, char *argv[])
 	if ((child_pid = fork()) == 0) {
 		/* =========== CHILD ============ */
 		set_cpu_core(getpid(), 3);
-
+		
+		memset(_buffer, 'b', BUFF_SIZE);
+		memset(header_ptr->buffer, 'd', DATA_SIZE);
 		/* LOOP FOR LANTENCY CALCULATION */
 		for (i = 0; i < NUM_TRIALS && header_ptr->child_offset < DATA_SIZE; ++i) {
 			/* spin till parent writes */
@@ -66,7 +68,9 @@ int main(int argc, char *argv[])
 		header_ptr->child_offset = 0;
 		int range = DATA_SIZE / packet_size;
 		
-			
+		memset(_buffer, 'b', BUFF_SIZE);
+		memset(header_ptr->buffer, 'd', DATA_SIZE);
+	
 		for(i = 0; i < range; ++i) {
 			/* Spin till server fills the buffer */
 			while (header_ptr->child_offset >= header_ptr->parent_offset);
@@ -82,6 +86,8 @@ int main(int argc, char *argv[])
 		/* =========== PARENT ============ */
 		set_cpu_core(getpid(), 2);
 		longtime min = INT_MAX, max = -1, sum = 0, start = 0, end = 0, diff = 0;
+		memset(_buffer, 'b', BUFF_SIZE);
+		memset(header_ptr->buffer, 'd', DATA_SIZE);
 		/* calculating latency */
 		for (i = 0; i < NUM_TRIALS && header_ptr->parent_offset < DATA_SIZE; ++i ) {
 			/* To utilize cache better */
@@ -123,6 +129,9 @@ int main(int argc, char *argv[])
 		/* Throughput calculations */
 		header_ptr->parent_offset = 0;
 		int range = DATA_SIZE / packet_size;
+		
+		memset(_buffer, 'b', BUFF_SIZE);
+		memset(header_ptr->buffer, 'd', DATA_SIZE);
 		
 		start = get_current_time();
 		for (i = 0; i < range; ++i) {

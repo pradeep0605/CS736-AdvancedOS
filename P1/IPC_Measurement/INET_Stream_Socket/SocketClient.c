@@ -47,6 +47,7 @@ int main(int argc, char *argv[]) {
 	
 	port = atoi(argv[1]);
 
+	
 	if ((fd = socket_create_and_connect(port)) < 0) {
 		socketperror("Error %d: at line %d: socket_create_and_connect\n", fd,
 			__LINE__);
@@ -59,6 +60,7 @@ int main(int argc, char *argv[]) {
 
 	/* ========================= Latency ===================== */
 	/* Calculate lanency */
+	memset(_buffer, 'e', sizeof(uchar) * BUFF_SIZE);
 	for (i = 0; i < NUM_TRIALS; ++i) {
 		if ((ret = read_full(fd, _buffer, packet_size)) < 0) {
 			socketperror("Error %d: at line %d: i = %d: read pktsize: %d\n",
@@ -70,6 +72,9 @@ int main(int argc, char *argv[]) {
 		}
 	}
 	printf("Done with Latency transactions! \n"); 
+
+	/* To make less page faults */
+	memset(_buffer, 'e', sizeof(uchar) * BUFF_SIZE);
 
 	int n = DATA_SIZE / packet_size;
 	uint sum = 0;
