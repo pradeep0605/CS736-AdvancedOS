@@ -41,7 +41,7 @@ typedef unsigned int uint;
 typedef struct timespec timespec;                          
 typedef long long int longtime;                            
 
-#define BUFF_SIZE (1024 * 512)
+#define BUFF_SIZE (1024 * 1024)
 #define DATA_SIZE (1024 * 1024 * 128)
 #define NUM_TRIALS (2000)
 #define BILLION (1000000000)
@@ -50,6 +50,18 @@ timespec zero;
 uchar _buffer[BUFF_SIZE]; /* 512k */
 // uchar _data[DATA_SIZE]; /* 8 MB */
 
+timespec global_res;
+longtime global_time;
+
+/* Optimized macro */
+#define get_current_time() \
+	({ longtime global_time = 0;\
+	 clock_gettime(CLOCK_MONOTONIC, &global_res);\
+	 global_time = (global_res.tv_sec * BILLION) + global_res.tv_nsec;\
+	 global_time;\
+	})
+
+/*
 inline longtime get_current_time() {              
     timespec res;                          
 	longtime time = 0;
@@ -57,7 +69,7 @@ inline longtime get_current_time() {
 	time = (res.tv_sec * BILLION) + res.tv_nsec;
 	return time;
 }                                          
-
+*/
 int get_packet_size(char *s) {
 	uint len = strlen(s);
 	uint res = 0;
@@ -146,3 +158,19 @@ int read_full(int fd, void *buff, uint size) {
 	return size;
 }
 
+/* As memory is shared, just read through the message */
+#define GO_THROUGH 1
+
+#if GO_THROUGH 
+#define faster_memcpy(d, s, length) \
+	{ uint k = 0; uint* src = (uint *) s, *dest = (uint*) d;\
+		for (; k < (length) / sizeof(uint); k+=1);\
+	}
+
+#else
+#define faster_memcpy(d, s, length)\
+	{ uint k = 0; uint* src = (uint *) s, *dest = (uint*) d;\
+		for (; k < (length / sizeof(uint)); k+=1) \
+			dest[k] = src[k];\
+	}
+#endif

@@ -1,7 +1,7 @@
 all:
-		gcc SharedMemory.c -o SharedMemory
+		gcc -O SharedMemory.c -o SharedMemory
 debug:
-		gcc SharedMemory.c -o SharedMemory
+		gcc -g SharedMemory.c -o SharedMemory
 
 clean:
 		rm SharedMemory
